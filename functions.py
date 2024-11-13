@@ -1,3 +1,4 @@
+import yfinance as yf
 from turtle import st
 import numpy as np
 from scipy.stats import norm
@@ -6,7 +7,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
 import streamlit as st
-
+from datetime import datetime
 
 def Call_BS_Value(S, X, r, T, v, q):
     # Calculates the value of a call option (Black-Scholes formula for call options with dividends)
@@ -94,6 +95,32 @@ def Calculate_IV_Call_Put(S, X, r, T, Option_Price, Put_or_Call, q):
     else:
         return 'Neither call or put'
 
+
+def calculate_time_to_expiration(expiration_date_str: str) -> float:
+    """
+    Calculate the time to expiration in years from today.
+
+    Parameters:
+    expiration_date_str (str): Expiration date in the format 'YYYY-MM-DD'
+
+    Returns:
+    float: Time to expiration in years
+    """
+    # Parse the expiration date string to a datetime object
+    expiration_date = datetime.strptime(expiration_date_str, "%Y-%m-%d")
+
+    # Get today's date
+    current_date = datetime.now()
+
+    # Calculate the number of days to expiration
+    days_to_expiration = (expiration_date - current_date).days
+
+    # Convert days to years (use 365 for simplicity)
+    T = days_to_expiration / 365.0
+
+    return T
+
+
 def calculate_option_values(min_spot, max_spot, min_vol, max_vol, strike_price, risk_free_rate, time_to_maturity, dividend_yield, purchase_price):
     spot_interval = np.round(np.linspace(min_spot, max_spot, 10), 2)
     vol_interval = np.round(np.linspace(min_vol, max_vol, 10), 2)
@@ -127,7 +154,6 @@ def calculate_option_values(min_spot, max_spot, min_vol, max_vol, strike_price, 
     return call_df, put_df, call_pnl_df, put_pnl_df
 
 
-# Function to plot either prices or PnL depending on user selection
 def plot_heatmaps(mode, call_df, put_df, call_pnl_df, put_pnl_df):
     fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 
@@ -156,3 +182,43 @@ def plot_heatmaps(mode, call_df, put_df, call_pnl_df, put_pnl_df):
 
     plt.tight_layout()
     st.pyplot(fig)
+
+
+def get_option_chains_spot(ticker_symbol):
+    # Fetch the ticker data
+    ticker = yf.Ticker(ticker_symbol)
+
+    # Get dividends, spot price, and expiration dates
+    dividends = ticker.dividends
+    spot_price = ticker.history(period="1d")["Close"].iloc[0]
+    expiration_dates = ticker.options  # Expiration dates
+
+    # Fetch call and put options for each expiration date
+    calls_dict = {date: ticker.option_chain(date).calls for date in expiration_dates}
+    puts_dict = {date: ticker.option_chain(date).puts for date in expiration_dates}
+
+    # Add expiration column to each DataFrame in calls_dict and puts_dict
+    for date, df in calls_dict.items():
+        df['expiration'] = date
+
+    for date, df in puts_dict.items():
+        df['expiration'] = date
+
+    # Concatenate all DataFrames from calls_dict and puts_dict
+    calls_all = pd.concat(calls_dict.values())
+    puts_all = pd.concat(puts_dict.values())
+
+    # For calls_all DataFrame
+    calls_all = calls_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
+    calls_all["time_to_expiration"] = calls_all["expiration"].apply(calculate_time_to_expiration)
+    calls_all = calls_all[calls_all["time_to_expiration"] > 0.0]
+    calls_all = calls_all.reset_index(drop=True)
+
+    # For puts_all DataFrame
+    puts_all = puts_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
+    puts_all["time_to_expiration"] = puts_all["expiration"].apply(calculate_time_to_expiration)
+    puts_all = puts_all[puts_all["time_to_expiration"] > 0.0]
+    puts_all = puts_all.reset_index(drop=True)
+
+    return calls_all, puts_all, spot_price
+
