@@ -1,6 +1,12 @@
+from turtle import st
 import numpy as np
 from scipy.stats import norm
 import scipy as sq
+import pandas as pd
+import seaborn as sns
+from matplotlib import pyplot as plt
+import streamlit as st
+
 
 def Call_BS_Value(S, X, r, T, v, q):
     # Calculates the value of a call option (Black-Scholes formula for call options with dividends)
@@ -87,3 +93,66 @@ def Calculate_IV_Call_Put(S, X, r, T, Option_Price, Put_or_Call, q):
         return Put_IV(S, X, r, T, Option_Price, q)
     else:
         return 'Neither call or put'
+
+def calculate_option_values(min_spot, max_spot, min_vol, max_vol, strike_price, risk_free_rate, time_to_maturity, dividend_yield, purchase_price):
+    spot_interval = np.round(np.linspace(min_spot, max_spot, 10), 2)
+    vol_interval = np.round(np.linspace(min_vol, max_vol, 10), 2)
+
+    call_values = np.zeros((len(vol_interval), len(spot_interval)))
+    put_values = np.zeros((len(vol_interval), len(spot_interval)))
+
+    call_pnl = np.zeros((len(vol_interval), len(spot_interval)))
+    put_pnl = np.zeros((len(vol_interval), len(spot_interval)))
+
+    for i, spot in enumerate(spot_interval):
+        for j, vol in enumerate(vol_interval):
+            call_values[j, i] = Call_BS_Value(spot, strike_price, risk_free_rate, time_to_maturity, vol, dividend_yield)
+            put_values[j, i] = Put_BS_Value(spot, strike_price, risk_free_rate, time_to_maturity, vol, dividend_yield)
+
+            call_pnl[j, i] = call_values[j, i] - purchase_price
+            put_pnl[j, i] = put_values[j, i] - purchase_price
+
+    call_df = pd.DataFrame(call_values, index=vol_interval, columns=spot_interval)
+    put_df = pd.DataFrame(put_values, index=vol_interval, columns=spot_interval)
+
+    call_pnl_df = pd.DataFrame(call_pnl, index=vol_interval, columns=spot_interval)
+    put_pnl_df = pd.DataFrame(put_pnl, index=vol_interval, columns=spot_interval)
+
+    call_df = call_df.round(2)
+    put_df = put_df.round(2)
+
+    call_pnl_df = call_pnl_df.round(2)
+    put_pnl_df = put_pnl_df.round(2)
+
+    return call_df, put_df, call_pnl_df, put_pnl_df
+
+
+# Function to plot either prices or PnL depending on user selection
+def plot_heatmaps(mode, call_df, put_df, call_pnl_df, put_pnl_df):
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+
+    if mode == 'Pricing':
+        # Plot Call and Put Prices
+        sns.heatmap(call_df, ax=axs[0], cmap='viridis', annot=True, cbar=True, fmt=".2f")
+        axs[0].set_title('CALL prices Heatmap')
+        axs[0].set_xlabel('Spot Price')
+        axs[0].set_ylabel('Volatility')
+
+        sns.heatmap(put_df, ax=axs[1], cmap='viridis', annot=True, cbar=True, fmt=".2f")
+        axs[1].set_title('PUT prices Heatmap')
+        axs[1].set_xlabel('Spot Price')
+        axs[1].set_ylabel('Volatility')
+    elif mode == 'P&L':
+        # Plot Call and Put PnLs
+        sns.heatmap(call_pnl_df, ax=axs[0], cmap='RdYlGn', annot=True, cbar=True, fmt=".2f")
+        axs[0].set_title('CALL P&Ls')
+        axs[0].set_xlabel('Spot Price')
+        axs[0].set_ylabel('Volatility')
+
+        sns.heatmap(put_pnl_df, ax=axs[1], cmap='RdYlGn', annot=True, cbar=True, fmt=".2f")
+        axs[1].set_title('PUT P&Ls')
+        axs[1].set_xlabel('Spot Price')
+        axs[1].set_ylabel('Volatility')
+
+    plt.tight_layout()
+    st.pyplot(fig)
