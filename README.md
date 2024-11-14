@@ -103,16 +103,27 @@ black-scholes-app/
 
 Visualize call and put option prices for different spot prices and volatilities.
 
+![Pricing Heatmap](screenshots/pricing_heatmap.jpg "Pricing Heatmap Example")
+
 2. P&L Heatmaps
 
 Analyze profits and losses for various scenarios.
 
+![P&L Heatmap](screenshots/P&L_heatmap.jpg "P&L Heatmap Example")
+
 3. Mispricing Visualization
 
 Identify undervalued and overvalued options.
+
+![Mispricing Heatmap](screenshots/mispricing_heatmap.jpg "Mispricing Heatmap Example")
 
 ## Future Enhancements
 
 - Add 3D visualization for pricing and P&L surfaces.
 - Include support for multiple tickers in one analysis.
 - Extend functionality to analyze options strategies (e.g., spreads).
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
