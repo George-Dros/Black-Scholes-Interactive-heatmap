@@ -9,6 +9,46 @@ from matplotlib import pyplot as plt
 import streamlit as st
 from datetime import datetime
 
+
+def get_option_chains_spot(ticker_symbol):
+    # Fetch the ticker data
+    ticker = yf.Ticker(ticker_symbol)
+
+    # Get dividends, spot price, and expiration dates
+    dividends = ticker.dividends
+    spot_price = ticker.history(period="1d")["Close"].iloc[0]
+    expiration_dates = ticker.options  # Expiration dates
+
+    # Fetch call and put options for each expiration date
+    calls_dict = {date: ticker.option_chain(date).calls for date in expiration_dates}
+    puts_dict = {date: ticker.option_chain(date).puts for date in expiration_dates}
+
+    # Add expiration column to each DataFrame in calls_dict and puts_dict
+    for date, df in calls_dict.items():
+        df['expiration'] = date
+
+    for date, df in puts_dict.items():
+        df['expiration'] = date
+
+    # Concatenate all DataFrames from calls_dict and puts_dict
+    calls_all = pd.concat(calls_dict.values())
+    puts_all = pd.concat(puts_dict.values())
+
+    # For calls_all DataFrame
+    calls_all = calls_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
+    calls_all["time_to_expiration"] = calls_all["expiration"].apply(calculate_time_to_expiration)
+    calls_all = calls_all[calls_all["time_to_expiration"] > 0.0]
+    calls_all = calls_all.reset_index(drop=True)
+
+    # For puts_all DataFrame
+    puts_all = puts_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
+    puts_all["time_to_expiration"] = puts_all["expiration"].apply(calculate_time_to_expiration)
+    puts_all = puts_all[puts_all["time_to_expiration"] > 0.0]
+    puts_all = puts_all.reset_index(drop=True)
+
+    return calls_all, puts_all, spot_price
+
+
 def Call_BS_Value(S, X, r, T, v, q):
     # Calculates the value of a call option (Black-Scholes formula for call options with dividends)
     # S is the share price at time T
@@ -154,6 +194,50 @@ def calculate_option_values(min_spot, max_spot, min_vol, max_vol, strike_price, 
     return call_df, put_df, call_pnl_df, put_pnl_df
 
 
+def calculate_market_prices(min_spot, max_spot, call_datapoints, put_datapoints, risk_free_rate, dividend_yield):
+    spot_interval = np.round(np.linspace(min_spot, max_spot, 10), 2)
+
+    call_vol_interval = call_datapoints["impliedVolatility"].round(2)
+    put_vol_interval = put_datapoints["impliedVolatility"].round(2)
+
+    call_values = np.zeros((len(call_vol_interval), len(spot_interval)))
+    put_values = np.zeros((len(put_vol_interval), len(spot_interval)))
+
+    for i, spot in enumerate(spot_interval):
+        for row in call_datapoints.itertuples():
+            call_values[row.Index, i] = Call_BS_Value(S=spot, X=row.strike, r=risk_free_rate, T=row.time_to_expiration,
+                                                v=row.impliedVolatility, q=dividend_yield) - row.lastPrice
+
+    for i, spot in enumerate(spot_interval):
+        for row in put_datapoints.itertuples():
+            put_values[row.Index, i] = Put_BS_Value(S=spot, X=row.strike, r=risk_free_rate, T=row.time_to_expiration,
+                                                v=row.impliedVolatility, q=dividend_yield) - row.lastPrice
+
+    call_df = pd.DataFrame(call_values, index=call_vol_interval, columns=spot_interval)
+    put_df = pd.DataFrame(put_values, index=put_vol_interval, columns=spot_interval)
+
+    return call_df, put_df
+
+
+def market_heatmaps(call_df, put_df):
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+
+    # Plot Call Prices Heatmap
+    sns.heatmap(call_df, ax=axs[0], cmap='RdBu', annot=True, cbar=True, fmt=".2f")
+    axs[0].set_title('Call Option Mis-pricing (Theoretical - Market)')
+    axs[0].set_xlabel('Spot Price')
+    axs[0].set_ylabel('Volatility')
+
+    # Plot Put Prices Heatmap
+    sns.heatmap(put_df, ax=axs[1], cmap='RdBu', annot=True, cbar=True, fmt=".2f")
+    axs[1].set_title('Put Option Mis-pricing (Theoretical - Market)')
+    axs[1].set_xlabel('Spot Price')
+    axs[1].set_ylabel('Volatility')
+
+    plt.tight_layout()
+    st.pyplot(fig)
+
+
 def plot_heatmaps(mode, call_df, put_df, call_pnl_df, put_pnl_df):
     fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 
@@ -182,43 +266,4 @@ def plot_heatmaps(mode, call_df, put_df, call_pnl_df, put_pnl_df):
 
     plt.tight_layout()
     st.pyplot(fig)
-
-
-def get_option_chains_spot(ticker_symbol):
-    # Fetch the ticker data
-    ticker = yf.Ticker(ticker_symbol)
-
-    # Get dividends, spot price, and expiration dates
-    dividends = ticker.dividends
-    spot_price = ticker.history(period="1d")["Close"].iloc[0]
-    expiration_dates = ticker.options  # Expiration dates
-
-    # Fetch call and put options for each expiration date
-    calls_dict = {date: ticker.option_chain(date).calls for date in expiration_dates}
-    puts_dict = {date: ticker.option_chain(date).puts for date in expiration_dates}
-
-    # Add expiration column to each DataFrame in calls_dict and puts_dict
-    for date, df in calls_dict.items():
-        df['expiration'] = date
-
-    for date, df in puts_dict.items():
-        df['expiration'] = date
-
-    # Concatenate all DataFrames from calls_dict and puts_dict
-    calls_all = pd.concat(calls_dict.values())
-    puts_all = pd.concat(puts_dict.values())
-
-    # For calls_all DataFrame
-    calls_all = calls_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
-    calls_all["time_to_expiration"] = calls_all["expiration"].apply(calculate_time_to_expiration)
-    calls_all = calls_all[calls_all["time_to_expiration"] > 0.0]
-    calls_all = calls_all.reset_index(drop=True)
-
-    # For puts_all DataFrame
-    puts_all = puts_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
-    puts_all["time_to_expiration"] = puts_all["expiration"].apply(calculate_time_to_expiration)
-    puts_all = puts_all[puts_all["time_to_expiration"] > 0.0]
-    puts_all = puts_all.reset_index(drop=True)
-
-    return calls_all, puts_all, spot_price
 
