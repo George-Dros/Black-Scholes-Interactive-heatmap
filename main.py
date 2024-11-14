@@ -1,19 +1,20 @@
 import streamlit as st
 import functions as f
 import pandas as pd
+import numpy as np
 
 st.set_page_config(layout="wide")
 
-#Set up Streamlit app
-st.title('Black Scholes Option Pricing')
-
-#Major program mode selection
+# Major program mode selection
 program_mode = st.sidebar.radio(
     'Select Program Mode:',
     ('Black-Scholes Pricer', 'Historical Ticker Data Pricer')
 )
 
 if program_mode == "Black-Scholes Pricer":
+
+    # Header
+    st.markdown("<h1 style='text-align: center;'>Black Scholes Option Pricing</h1>", unsafe_allow_html=True)
     # Add sidebar inputs
     st.sidebar.header('Black-Scholes Variables')
 
@@ -110,6 +111,10 @@ if program_mode == "Black-Scholes Pricer":
     heatmap = f.plot_heatmaps(mode=mode, call_df=call_df, put_df=put_df, call_pnl_df=call_pnl_df, put_pnl_df=put_pnl_df)
 
 elif program_mode == 'Historical Ticker Data Pricer':
+
+    # Header
+    st.markdown("<h1 style='text-align: center;'>Mispricing Heatmap: Theoretical Price Minus Market Price</h1>", unsafe_allow_html=True)
+
     # Sidebar Inputs for Historical Ticker Data Pricer
     st.sidebar.header('Historical Ticker Data Variables')
 
@@ -118,54 +123,78 @@ elif program_mode == 'Historical Ticker Data Pricer':
     risk_free_rate = st.sidebar.number_input('Risk-Free Rate', min_value=0.0, max_value=1.0, value=0.03, format="%.4f")
     dividend_yield = st.sidebar.number_input('Dividend Yield', min_value=0.0, max_value=1.0, value=0.0, format="%.4f")
 
-
-    #Get the Calls and Puts
+    # Get the Calls and Puts
     calls_all, puts_all, spot_price = f.get_option_chains_spot(ticker_symbol=ticker_symbol)
 
     calls_all["expiration"] = pd.to_datetime(calls_all["expiration"])
-
-    call_unique_years = calls_all["expiration"].dt.year.unique()
-    call_unique_months = calls_all["expiration"].dt.month.unique()
-    call_unique_days = calls_all["expiration"].dt.day.unique()
-
     puts_all["expiration"] = pd.to_datetime(puts_all["expiration"])
 
-    put_unique_years = puts_all["expiration"].dt.year.unique()
-    put_unique_months = puts_all["expiration"].dt.month.unique()
-    put_unique_days = puts_all["expiration"].dt.day.unique()
-
+    common_years = pd.Series(list(set(calls_all['expiration'].dt.year) & set(puts_all['expiration'].dt.year)))
 
     # Date selection inputs
     st.sidebar.subheader('Option Maturity Date')
-    year = st.sidebar.selectbox('Year', options=call_unique_years)  # Example years, replace with dynamic data
-    month = st.sidebar.selectbox('Month', options=call_unique_months)
-    day = st.sidebar.selectbox('Day', options=call_unique_days)
+    selected_year = st.sidebar.selectbox('Year', options=common_years)
 
-    # Call and Put prices for given inputs
-    call_price = f.Call_BS_Value(spot_price, strike_price, risk_free_rate, time_to_maturity, volatility,
-                                 q=dividend_yield)
-    put_price = f.Put_BS_Value(spot_price, strike_price, risk_free_rate, time_to_maturity, volatility,
-                               q=dividend_yield)
+    filtered_calls_year = calls_all[calls_all['expiration'].dt.year == selected_year]
+    filtered_puts_year = puts_all[puts_all['expiration'].dt.year == selected_year]
 
+    common_months = pd.Series(list(set(filtered_calls_year['expiration'].dt.month) & set(filtered_puts_year['expiration'].dt.month)))
+    selected_month = st.sidebar.selectbox('Month', options=common_months)
+
+    filtered_calls_month = filtered_calls_year[filtered_calls_year['expiration'].dt.month == selected_month]
+    filtered_puts_month = filtered_puts_year[filtered_puts_year['expiration'].dt.month == selected_month]
+
+    common_days = pd.Series(list(set(filtered_calls_month['expiration'].dt.day) & set(filtered_puts_month['expiration'].dt.day)))
+    selected_day = st.sidebar.selectbox('Day', options=common_days)
+
+    # Format the date to use in teh dataframes
+    formatted_date = f"{selected_year}-{int(selected_month):02}-{int(selected_day):02}"
+    date_for_call = calls_all[calls_all['expiration'] == formatted_date]
+    date_for_put = puts_all[puts_all['expiration'] == formatted_date]
+
+    # Time to maturity in float
+    time_to_maturity = date_for_call["time_to_expiration"].iloc[0]
+
+    # Create the datapoints
+    call_n = len(date_for_call)
+    put_n = len(date_for_put)
+
+    call_indices = np.linspace(0, call_n - 1, 10, dtype=int)
+    put_indices = np.linspace(0, put_n - 1, 10, dtype=int)
+
+    call_datapoints = date_for_call.iloc[call_indices]
+    put_datapoints = date_for_put.iloc[put_indices]
+
+    call_datapoints = call_datapoints.reset_index(drop=True)
+    put_datapoints = put_datapoints.reset_index(drop=True)
 
     # Spot price slider based on ticker data
-    spot_price_slider = st.sidebar.slider(
+    min_spot, max_spot = spot_price_slider = st.sidebar.slider(
         'Spot Price Range',
         min_value=0.1 * spot_price,
-        max_value=1.0 * spot_price,
-        value=(0.2 * spot_price, 0.8 * spot_price),
+        max_value=2.0 * spot_price,
+        value=(0.5 * spot_price, 1.5 * spot_price),
         format="%.2f"
     )
 
-    # Display selected inputs
-    st.markdown(f"**Ticker Symbol:** {ticker_symbol}")
-    st.markdown(f"**Risk-Free Rate:** {risk_free_rate:.4f}")
-    st.markdown(f"**Dividend Yield:** {dividend_yield:.4f}")
-    st.markdown(f"**Selected Maturity Date:** {year}-{month:02d}-{day:02d}")
-    st.markdown(f"**Spot Price Range:** ${spot_price_slider[0]:.2f} - ${spot_price_slider[1]:.2f}")
 
-    # Placeholder for additional calculations based on ticker data
-    st.markdown("### Pricing based on Historical Ticker Data will be implemented here.")
+    # Display Variables in a wide format using Streamlit columns
+    colA, colB, colC, colD, colE, colF = st.columns([1, 1, 1, 1, 1,  1])
 
+    with colA:
+        st.markdown(f"**Current Price:** ${spot_price:.2f}")
+    with colB:
+        st.markdown(f"**Ticker:** ${ticker_symbol}")
+    with colC:
+        st.markdown(f"**Selected Maturity Date:** {selected_year}-{selected_month:02d}-{selected_day:02d}")
+    with colD:
+        st.markdown(f"**Risk-Free Rate:** {risk_free_rate:.4f}")
+    with colE:
+        st.markdown(f"**Dividend Yield:** {dividend_yield:.4f}")
+    with colF:
+        st.markdown(f"**Spot Price Range:** ${spot_price_slider[0]:.2f} - ${spot_price_slider[1]:.2f}")
 
-
+    # Theoretical minus Market prices data
+    call_df, put_df = f.calculate_market_prices(min_spot, max_spot, call_datapoints, put_datapoints, risk_free_rate,
+                                                                                dividend_yield)
+    heatmap = f.market_heatmaps(call_df, put_df)
