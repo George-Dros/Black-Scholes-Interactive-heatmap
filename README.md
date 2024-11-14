@@ -91,9 +91,14 @@ The app depends on the following Python libraries:
 
 ```bash
 black-scholes-app/
-├── app.py                # Main Streamlit app script
+├── main.py               # Main Streamlit app script
 ├── functions.py          # Helper functions for calculations and data fetching
+├── screenshots/          # Screenshots of the app 
+│   ├── pricing_heatmap.jpg 
+│   ├── pnl_heatmap.jpg
+│   ├── mispricing_heatmap.jpg
 ├── requirements.txt      # Dependencies for the project
+├──  LICENSE              # Project license (MIT)
 ├── README.md             # Documentation (this file)
 ```
 
