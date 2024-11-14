@@ -49,7 +49,7 @@ def get_option_chains_spot(ticker_symbol):
     return calls_all, puts_all, spot_price
 
 
-def Call_BS_Value(S, X, r, T, v, q):
+def call_bs_value(S, X, r, T, v, q):
     # Calculates the value of a call option (Black-Scholes formula for call options with dividends)
     # S is the share price at time T
     # X is the strike price
@@ -62,22 +62,22 @@ def Call_BS_Value(S, X, r, T, v, q):
     return S * np.exp(-q * T) * norm.cdf(d_1) - X * np.exp(-r * T) * norm.cdf(d_2)
 
 
-def Call_IV_Obj_Function(S, X, r, T, v, q, Call_Price):
+def call_iv_obj_function(S, X, r, T, v, q, call_price):
     # Objective function which sets market and model prices equal to zero (Function needed for Call_IV)
     # The parameters are explained in the Call_BS_Value function
-    return Call_Price - Call_BS_Value(S, X, r, T, v, q)
+    return call_price - call_bs_value(S, X, r, T, v, q)
 
 
-def Call_IV(S, X, r, T, Call_Price, q, a=-2, b=2, xtol=0.000001):
+def call_iv(S, X, r, T, call_price, q, a=-2, b=2, xtol=0.000001):
     # Calculates the implied volatility for a call option with Brent's method
     # The first four parameters are explained in the Call_BS_Value function
     # Call_Price is the price of the call option
     # q is the dividend yield
     # Last three variables are needed for Brent's method
-    _S, _X, _r, _t, _Call_Price, _q = S, X, r, T, Call_Price, q
+    _S, _X, _r, _t, _call_Price, _q = S, X, r, T, call_price, q
 
     def fcn(v):
-        return Call_IV_Obj_Function(_S, _X, _r, _t, v, _q, _Call_Price)
+        return call_iv_obj_function(_S, _X, _r, _t, v, _q, _call_Price)
 
     try:
         result = sq.optimize.brentq(fcn, a=a, b=b, xtol=xtol)
@@ -86,7 +86,7 @@ def Call_IV(S, X, r, T, Call_Price, q, a=-2, b=2, xtol=0.000001):
         return np.nan
 
 
-def Put_BS_Value(S, X, r, T, v, q):
+def put_bs_value(S, X, r, T, v, q):
     # Calculates the value of a put option (Black-Scholes formula for put options with dividends)
     # The parameters are explained in the Call_BS_Value function
     d_1 = (np.log(S / X) + (r - q + v ** 2 * 0.5) * T) / (v * np.sqrt(T))
@@ -94,22 +94,22 @@ def Put_BS_Value(S, X, r, T, v, q):
     return X * np.exp(-r * T) * norm.cdf(-d_2) - S * np.exp(-q * T) * norm.cdf(-d_1)
 
 
-def Put_IV_Obj_Function(S, X, r, T, v, q, Put_Price):
+def put_iv_obj_function(S, X, r, T, v, q, put_price):
     # Objective function which sets market and model prices equal to zero (Function needed for Put_IV)
     # The parameters are explained in the Call_BS_Value function
-    return Put_Price - Put_BS_Value(S, X, r, T, v, q)
+    return put_price - put_bs_value(S, X, r, T, v, q)
 
 
-def Put_IV(S, X, r, T, Put_Price, q, a=-2, b=2, xtol=0.000001):
+def put_iv(S, X, r, T, put_price, q, a=-2, b=2, xtol=0.000001):
     # Calculates the implied volatility for a put option with Brent's method
     # The first four parameters are explained in the Call_BS_Value function
     # Put_Price is the price of the put option
     # q is the dividend yield
     # Last three variables are needed for Brent's method
-    _S, _X, _r, _t, _Put_Price, _q = S, X, r, T, Put_Price, q
+    _S, _X, _r, _t, _Put_Price, _q = S, X, r, T, put_price, q
 
     def fcn(v):
-        return Put_IV_Obj_Function(_S, _X, _r, _t, v, _q, _Put_Price)
+        return put_iv_obj_function(_S, _X, _r, _t, v, _q, _Put_Price)
 
     try:
         result = sq.optimize.brentq(fcn, a=a, b=b, xtol=xtol)
@@ -118,7 +118,7 @@ def Put_IV(S, X, r, T, Put_Price, q, a=-2, b=2, xtol=0.000001):
         return np.nan
 
 
-def Calculate_IV_Call_Put(S, X, r, T, Option_Price, Put_or_Call, q):
+def calculate_iv_call_put(S, X, r, T, option_price, put_or_call, q):
     # This is a general function witch summarizes Call_IV and Put_IV (delivers the same results)
     # Can be used for a Lambda function within Pandas
     # The first four parameters are explained in the Call_BS_Value function
@@ -128,10 +128,10 @@ def Calculate_IV_Call_Put(S, X, r, T, Option_Price, Put_or_Call, q):
     # Option_Price is the price of the option.
     # q is the dividend yield
 
-    if Put_or_Call == 'C':
-        return Call_IV(S, X, r, T, Option_Price, q)
-    if Put_or_Call == 'P':
-        return Put_IV(S, X, r, T, Option_Price, q)
+    if put_or_call == 'C':
+        return call_iv(S, X, r, T, option_price, q)
+    if put_or_call == 'P':
+        return put_iv(S, X, r, T, option_price, q)
     else:
         return 'Neither call or put'
 
@@ -162,8 +162,8 @@ def calculate_time_to_expiration(expiration_date_str: str) -> float:
 
 
 def calculate_option_values(min_spot, max_spot, min_vol, max_vol, strike_price, risk_free_rate, time_to_maturity, dividend_yield, purchase_price):
-    spot_interval = np.round(np.linspace(min_spot, max_spot, 10), 2)
-    vol_interval = np.round(np.linspace(min_vol, max_vol, 10), 2)
+    spot_interval = np.round(np.linspace(min_spot, max_spot, 11), 2)
+    vol_interval = np.round(np.linspace(min_vol, max_vol, 11), 2)
 
     call_values = np.zeros((len(vol_interval), len(spot_interval)))
     put_values = np.zeros((len(vol_interval), len(spot_interval)))
@@ -173,8 +173,8 @@ def calculate_option_values(min_spot, max_spot, min_vol, max_vol, strike_price, 
 
     for i, spot in enumerate(spot_interval):
         for j, vol in enumerate(vol_interval):
-            call_values[j, i] = Call_BS_Value(spot, strike_price, risk_free_rate, time_to_maturity, vol, dividend_yield)
-            put_values[j, i] = Put_BS_Value(spot, strike_price, risk_free_rate, time_to_maturity, vol, dividend_yield)
+            call_values[j, i] = call_bs_value(spot, strike_price, risk_free_rate, time_to_maturity, vol, dividend_yield)
+            put_values[j, i] = put_bs_value(spot, strike_price, risk_free_rate, time_to_maturity, vol, dividend_yield)
 
             call_pnl[j, i] = call_values[j, i] - purchase_price
             put_pnl[j, i] = put_values[j, i] - purchase_price
@@ -195,7 +195,7 @@ def calculate_option_values(min_spot, max_spot, min_vol, max_vol, strike_price, 
 
 
 def calculate_market_prices(min_spot, max_spot, call_datapoints, put_datapoints, risk_free_rate, dividend_yield):
-    spot_interval = np.round(np.linspace(min_spot, max_spot, 10), 2)
+    spot_interval = np.round(np.linspace(min_spot, max_spot, 11), 2)
 
     call_vol_interval = call_datapoints["impliedVolatility"].round(2)
     put_vol_interval = put_datapoints["impliedVolatility"].round(2)
@@ -205,13 +205,13 @@ def calculate_market_prices(min_spot, max_spot, call_datapoints, put_datapoints,
 
     for i, spot in enumerate(spot_interval):
         for row in call_datapoints.itertuples():
-            call_values[row.Index, i] = Call_BS_Value(S=spot, X=row.strike, r=risk_free_rate, T=row.time_to_expiration,
-                                                v=row.impliedVolatility, q=dividend_yield) - row.lastPrice
+            call_values[row.Index, i] = call_bs_value(S=spot, X=row.strike, r=risk_free_rate, T=row.time_to_expiration,
+                                                      v=row.impliedVolatility, q=dividend_yield) - row.lastPrice
 
     for i, spot in enumerate(spot_interval):
         for row in put_datapoints.itertuples():
-            put_values[row.Index, i] = Put_BS_Value(S=spot, X=row.strike, r=risk_free_rate, T=row.time_to_expiration,
-                                                v=row.impliedVolatility, q=dividend_yield) - row.lastPrice
+            put_values[row.Index, i] = put_bs_value(S=spot, X=row.strike, r=risk_free_rate, T=row.time_to_expiration,
+                                                    v=row.impliedVolatility, q=dividend_yield) - row.lastPrice
 
     call_df = pd.DataFrame(call_values, index=call_vol_interval, columns=spot_interval)
     put_df = pd.DataFrame(put_values, index=put_vol_interval, columns=spot_interval)
@@ -224,15 +224,23 @@ def market_heatmaps(call_df, put_df):
 
     # Plot Call Prices Heatmap
     sns.heatmap(call_df, ax=axs[0], cmap='RdBu', annot=True, cbar=True, fmt=".2f")
-    axs[0].set_title('Call Option Mis-pricing (Theoretical - Market)')
+    axs[0].set_title('Call Mis-pricing')
     axs[0].set_xlabel('Spot Price')
     axs[0].set_ylabel('Volatility')
 
     # Plot Put Prices Heatmap
     sns.heatmap(put_df, ax=axs[1], cmap='RdBu', annot=True, cbar=True, fmt=".2f")
-    axs[1].set_title('Put Option Mis-pricing (Theoretical - Market)')
+    axs[1].set_title('Put Mispricing')
     axs[1].set_xlabel('Spot Price')
     axs[1].set_ylabel('Volatility')
+
+    handles = [
+        plt.Line2D([0], [0], color='blue', label='Undervalued (Theoretical > Market)'),
+        plt.Line2D([0], [0], color='white', label='Fairly Priced'),
+        plt.Line2D([0], [0], color='red', label='Overvalued (Theoretical < Market)')
+    ]
+    fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=3,
+               fontsize=22, markerscale=4, frameon=True)
 
     plt.tight_layout()
     st.pyplot(fig)
@@ -244,14 +252,27 @@ def plot_heatmaps(mode, call_df, put_df, call_pnl_df, put_pnl_df):
     if mode == 'Pricing':
         # Plot Call and Put Prices
         sns.heatmap(call_df, ax=axs[0], cmap='viridis', annot=True, cbar=True, fmt=".2f")
+        axs[0].set_facecolor('#f5f5f5')
         axs[0].set_title('CALL prices Heatmap')
         axs[0].set_xlabel('Spot Price')
         axs[0].set_ylabel('Volatility')
 
         sns.heatmap(put_df, ax=axs[1], cmap='viridis', annot=True, cbar=True, fmt=".2f")
+        axs[1].set_facecolor('#f5f5f5')
         axs[1].set_title('PUT prices Heatmap')
         axs[1].set_xlabel('Spot Price')
         axs[1].set_ylabel('Volatility')
+
+        # Add Legend for Pricing Mode
+        handles = [
+            plt.Line2D([0], [0], color='purple', label='Low Prices'),
+            plt.Line2D([0], [0], color='green', label='Moderate Prices'),
+            plt.Line2D([0], [0], color='yellow', label='High Prices')
+        ]
+        fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=3,
+                            fontsize=22, markerscale=4, frameon=True)
+
+
     elif mode == 'P&L':
         # Plot Call and Put PnLs
         sns.heatmap(call_pnl_df, ax=axs[0], cmap='RdYlGn', annot=True, cbar=True, fmt=".2f")
@@ -264,6 +285,13 @@ def plot_heatmaps(mode, call_df, put_df, call_pnl_df, put_pnl_df):
         axs[1].set_xlabel('Spot Price')
         axs[1].set_ylabel('Volatility')
 
+        handles = [
+            plt.Line2D([0], [0], color='darkred', label='Negative P&L'),
+            plt.Line2D([0], [0], color='yellow', label='Breakeven'),
+            plt.Line2D([0], [0], color='darkgreen', label='Positive P&L')
+        ]
+        fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=3,
+                            fontsize=22, markerscale=4, frameon=True)
     plt.tight_layout()
     st.pyplot(fig)
 
