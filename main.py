@@ -19,7 +19,7 @@ if program_mode == "Black-Scholes Pricer":
     st.sidebar.header('Black-Scholes Variables')
 
     # User Inputs
-    current_price = st.sidebar.number_input('Current Price($)', value=100.00, format="%.2f")
+    current_price = st.sidebar.number_input('Spot Price($)', value=100.00, format="%.2f")
     strike_price = st.sidebar.number_input('Strike Price($)', value=80.00, format="%.2f")
     volatility = st.sidebar.number_input('Volatility (σ)', value=0.20, format="%.2f")
     time_to_maturity = st.sidebar.number_input('Time to Maturity (in Years, days/365)', value=1.00, format="%.2f")
@@ -57,14 +57,14 @@ if program_mode == "Black-Scholes Pricer":
 
     vol_min_selected, vol_max_selected = volatility_range_percentage
 
-    spot_min = st.sidebar.number_input('Min Spot Price($)', value=70.00, format="%.2f")
-    spot_max = st.sidebar.number_input('Max Spot Price($)', value=120.00, format="%.2f")
+    spot_min = st.sidebar.number_input('Min Spot Price($)', value=0.5 * current_price, format="%.2f")
+    spot_max = st.sidebar.number_input('Max Spot Price($)', value=1.5 * current_price, format="%.2f")
 
     # Display Black Scholes Variables in a wide format using Streamlit columns
     colA, colB, colC, colD, colE, colF = st.columns([1, 1, 1, 1, 1, 1])
 
     with colA:
-        st.markdown(f"**Current Price:** ${current_price:.2f}")
+        st.markdown(f"**Spot Price:** ${current_price:.2f}")
     with colB:
         st.markdown(f"**Strike Price:** ${strike_price:.2f}")
     with colC:
@@ -159,8 +159,8 @@ elif program_mode == 'Historical Ticker Data Pricer':
     call_n = len(date_for_call)
     put_n = len(date_for_put)
 
-    call_indices = np.linspace(0, call_n - 1, 10, dtype=int)
-    put_indices = np.linspace(0, put_n - 1, 10, dtype=int)
+    call_indices = np.linspace(0, call_n - 1, 11, dtype=int)
+    put_indices = np.linspace(0, put_n - 1, 11, dtype=int)
 
     call_datapoints = date_for_call.iloc[call_indices]
     put_datapoints = date_for_put.iloc[put_indices]
@@ -177,12 +177,11 @@ elif program_mode == 'Historical Ticker Data Pricer':
         format="%.2f"
     )
 
-
     # Display Variables in a wide format using Streamlit columns
-    colA, colB, colC, colD, colE, colF = st.columns([1, 1, 1, 1, 1,  1])
+    colA, colB, colC, colD, colE, colF = st.columns([1, 1, 1, 1, 1, 1])
 
     with colA:
-        st.markdown(f"**Current Price:** ${spot_price:.2f}")
+        st.markdown(f"**Spot Price:** ${spot_price:.2f}")
     with colB:
         st.markdown(f"**Ticker:** ${ticker_symbol}")
     with colC:
