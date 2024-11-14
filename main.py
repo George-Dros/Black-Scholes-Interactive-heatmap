@@ -77,9 +77,9 @@ if program_mode == "Black-Scholes Pricer":
         st.markdown(f"**Dividend Yield:** {dividend_yield:.4f}")
 
     # Call and Put prices for given inputs
-    call_price = f.Call_BS_Value(current_price, strike_price, risk_free_rate, time_to_maturity, volatility,
+    call_price = f.call_bs_value(current_price, strike_price, risk_free_rate, time_to_maturity, volatility,
                                  q=dividend_yield)
-    put_price = f.Put_BS_Value(current_price, strike_price, risk_free_rate, time_to_maturity, volatility,
+    put_price = f.put_bs_value(current_price, strike_price, risk_free_rate, time_to_maturity, volatility,
                                q=dividend_yield)
 
     # Create two columns to display Call and Put prices
