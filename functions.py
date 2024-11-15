@@ -1,5 +1,4 @@
 import yfinance as yf
-from turtle import st
 import numpy as np
 from scipy.stats import norm
 import scipy as sq
@@ -15,7 +14,7 @@ def get_option_chains_spot(ticker_symbol):
     ticker = yf.Ticker(ticker_symbol)
 
     # Get dividends, spot price, and expiration dates
-    dividends = ticker.dividends
+    # dividends = ticker.dividends
     spot_price = ticker.history(period="1d")["Close"].iloc[0]
     expiration_dates = ticker.options  # Expiration dates
 
