@@ -7,45 +7,69 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 import streamlit as st
 from datetime import datetime
+import time
 
 
-def get_option_chains_spot(ticker_symbol):
+import time
+import yfinance as yf
+import pandas as pd
+
+def get_option_chains_spot(ticker_symbol, retries=3, delay=2):
     # Fetch the ticker data
     ticker = yf.Ticker(ticker_symbol)
+    for attempt in range(retries):
+        try:
+            # Get the historical spot price
+            history = ticker.history(period="1d")
 
-    # Get dividends, spot price, and expiration dates
-    # dividends = ticker.dividends
-    spot_price = ticker.history(period="1d")["Close"].iloc[0]
-    expiration_dates = ticker.options  # Expiration dates
+            # Check if the history DataFrame is empty
+            if history.empty:
+                raise ValueError(f"No historical data available for ticker {ticker_symbol}.")
 
-    # Fetch call and put options for each expiration date
-    calls_dict = {date: ticker.option_chain(date).calls for date in expiration_dates}
-    puts_dict = {date: ticker.option_chain(date).puts for date in expiration_dates}
+            # Get the spot price from the history DataFrame
+            spot_price = history["Close"].iloc[0]
 
-    # Add expiration column to each DataFrame in calls_dict and puts_dict
-    for date, df in calls_dict.items():
-        df['expiration'] = date
+            # Get expiration dates
+            expiration_dates = ticker.options  # Expiration dates
 
-    for date, df in puts_dict.items():
-        df['expiration'] = date
+            # Fetch call and put options for each expiration date
+            calls_dict = {date: ticker.option_chain(date).calls for date in expiration_dates}
+            puts_dict = {date: ticker.option_chain(date).puts for date in expiration_dates}
 
-    # Concatenate all DataFrames from calls_dict and puts_dict
-    calls_all = pd.concat(calls_dict.values())
-    puts_all = pd.concat(puts_dict.values())
+            # Add expiration column to each DataFrame in calls_dict and puts_dict
+            for date, df in calls_dict.items():
+                df['expiration'] = date
 
-    # For calls_all DataFrame
-    calls_all = calls_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
-    calls_all["time_to_expiration"] = calls_all["expiration"].apply(calculate_time_to_expiration)
-    calls_all = calls_all[calls_all["time_to_expiration"] > 0.0]
-    calls_all = calls_all.reset_index(drop=True)
+            for date, df in puts_dict.items():
+                df['expiration'] = date
 
-    # For puts_all DataFrame
-    puts_all = puts_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
-    puts_all["time_to_expiration"] = puts_all["expiration"].apply(calculate_time_to_expiration)
-    puts_all = puts_all[puts_all["time_to_expiration"] > 0.0]
-    puts_all = puts_all.reset_index(drop=True)
+            # Concatenate all DataFrames from calls_dict and puts_dict
+            calls_all = pd.concat(calls_dict.values(), ignore_index=True)
+            puts_all = pd.concat(puts_dict.values(), ignore_index=True)
 
-    return calls_all, puts_all, spot_price
+            # For calls_all DataFrame
+            calls_all = calls_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
+            calls_all["time_to_expiration"] = calls_all["expiration"].apply(calculate_time_to_expiration)
+            calls_all = calls_all[calls_all["time_to_expiration"] > 0.0]
+            calls_all = calls_all.reset_index(drop=True)
+
+            # For puts_all DataFrame
+            puts_all = puts_all[["strike", "lastPrice", "impliedVolatility", "expiration"]]
+            puts_all["time_to_expiration"] = puts_all["expiration"].apply(calculate_time_to_expiration)
+            puts_all = puts_all[puts_all["time_to_expiration"] > 0.0]
+            puts_all = puts_all.reset_index(drop=True)
+
+            # If successful, return the data
+            return calls_all, puts_all, spot_price
+
+        except (IndexError, ValueError) as e:
+            # Print a warning and retry after a delay
+            print(f"Attempt {attempt + 1} failed with error: {e} - Retrying after {delay} seconds...")
+            time.sleep(delay)
+
+    # If all retries fail, raise an error
+    raise ValueError(f"Failed to get spot price and options data for ticker {ticker_symbol} after {retries} attempts.")
+
 
 
 def call_bs_value(S, X, r, T, v, q):
